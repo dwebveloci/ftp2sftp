@@ -1,0 +1,64 @@
+# Example configuration for ftp2sftp.
+#
+# This file contains no real secrets. passwordHash below is a bcrypt hash
+# of a placeholder password ("changeme") generated only for this example;
+# generate your own before using this file (see README.md). sftp.password
+# is left empty in favor of sftp.privateKeyFile, matching the requirement
+# to prefer key-based SFTP authentication.
+#
+# Copy this file, adjust every value for your environment, and mount the
+# result read-only into the container (see deploy/docker/docker-compose.yml).
+
+server:
+  listenAddress: "0.0.0.0"
+  controlPort: 2121              # unprivileged; see docs/deployment/deployment-model.md
+  passiveAddress: "ftp.internal.example"
+  passivePortStart: 30000
+  passivePortEnd: 30099          # 100 ports: must be >= maxConnections below
+  maxConnections: 50
+  idleTimeout: "5m"
+  dataConnectionTimeout: "30s"
+  shutdownTimeout: "15s"
+
+transfer:
+  bufferSize: 65536
+  temporarySuffix: ".part"
+  calculateSha256: true
+
+observability:
+  logLevel: "info"
+  logFormat: "json"
+
+health:
+  listenAddress: "0.0.0.0:8080"
+  readinessRequiresSftp: false   # set true once real SFTP connectivity should gate readiness
+
+users:
+  - username: "ax2012"
+    # bcrypt("changeme") — replace with your own hash before deploying.
+    passwordHash: "$2a$10$4LnrmECHWhRTrGeVNDEvPOVAUTUV2mZGLQrgb7OsdTDbbxo5z2d12"
+    virtualRoot: "/"
+    maxFileSize: 1073741824        # 1 GiB
+    maxConcurrentTransfers: 4
+    permissions:
+      allowUpload: true
+      allowDownload: false
+      allowDelete: false
+      allowMkdir: false
+      allowRename: false
+      allowOverwrite: false
+    sftp:
+      host: "sftp.internal.example"
+      port: 22
+      username: "admin_facturas"
+      privateKeyFile: "/run/secrets/sftp_private_key"
+      knownHostsFile: "/app/config/known_hosts"
+      rootPath: "/home/briva.mx/public_html/guias/facturas"
+      connectTimeout: "10s"
+      # Bounds LIST/NLST (SFTP ReadDir), which pages a directory as a
+      # sequential loop of network round trips with no built-in limit.
+      # Against a remote directory with tens of thousands of entries this
+      # can run long enough that the remote server kills the connection
+      # mid-listing; raise this only if rootPath is known to contain very
+      # large directories AND the remote tolerates a long-lived listing.
+      readDirTimeout: "60s"

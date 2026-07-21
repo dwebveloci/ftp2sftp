@@ -1,0 +1,37 @@
+# Pre-production stack: ftp2sftp in a container, pointed at a real remote
+# SFTP server instead of the disposable atmoz/sftp used by
+# docker-compose.yml. There is no sftp-test service here on purpose — the
+# whole point of this file is testing against the real target.
+#
+# Requires a local, gitignored ./pre-prod/ directory (see .gitignore)
+# containing at minimum:
+#   - config.yml        (server + users[], sftp.host/username/password or
+#                         privateKeyFile, sftp.rootPath — see
+#                         configs/config.example.yaml for the full schema)
+#   - known_hosts.remote (captured with ssh-keyscan against the real host;
+#                         never accept a host key you have not verified)
+#
+# This file contains no secrets itself — everything sensitive lives in
+# ./pre-prod/, which is never committed.
+#
+# Usage:
+#   docker compose -f docker-compose.preprod.yml up --build
+#
+# server.passivePortStart/End and server.controlPort in pre-prod/config.yml
+# must match the port mappings below exactly. server.passiveAddress must be
+# an address your FTP client can actually reach (not the container's
+# internal IP) — on WSL2 without mirrored networking, that is this
+# machine's `hostname -I` address, not 127.0.0.1 (see
+# docs/deployment/deployment-model.md for why).
+
+services:
+  ftp2sftp:
+    build: .
+    environment:
+      CONFIG_FILE: /app/pre-prod/config.yml
+    volumes:
+      - ./pre-prod:/app/pre-prod:ro
+    ports:
+      - "2121:2121"
+      - "30000-30009:30000-30009" # must match pre-prod/config.yml's passivePortStart/End exactly
+      - "127.0.0.1:8080:8080" # health/readiness/metrics: loopback-only, never exposed like the FTP port

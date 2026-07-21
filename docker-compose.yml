@@ -1,0 +1,48 @@
+# Development/demo stack: ftp2sftp plus a disposable SFTP server to point
+# it at. Not intended for production (see docs/deployment/deployment-model.md
+# for the real network topology, which involves cloudflared and a private
+# network, neither of which is meaningful to model in a laptop compose
+# file).
+#
+# One-time setup before `docker compose up`: see deploy/docker/README.md
+# (generates a dev-only SSH key pair and known_hosts entry; nothing here is
+# committed to git).
+
+services:
+  sftp-test:
+    image: atmoz/sftp:alpine
+    volumes:
+      - sftp_host_keys:/etc/ssh
+      - sftp_data:/home/facturas/upload
+      - ./deploy/docker/dev-keys/facturas.pub:/home/facturas/.ssh/keys/facturas.pub:ro
+    # Empty password field disables password auth for this user, forcing
+    # key-based authentication even in the dev environment.
+    command: "facturas::1001:1001:upload"
+    ports:
+      - "127.0.0.1:2222:22" # loopback-only; used to seed known_hosts and to inspect the test server manually
+    networks:
+      - backend
+
+  ftp2sftp:
+    build: .
+    depends_on:
+      - sftp-test
+    environment:
+      CONFIG_FILE: /app/config/config.yaml
+    volumes:
+      - ./configs/config.dev.yaml:/app/config/config.yaml:ro
+      - ./deploy/docker/known_hosts:/app/config/known_hosts:ro
+      - ./deploy/docker/dev-keys/facturas_id_ed25519:/run/secrets/sftp_private_key:ro
+    ports:
+      - "2121:2121"
+      - "30000-30009:30000-30009" # must match configs/config.dev.yaml's passivePortStart/End exactly
+      - "127.0.0.1:8080:8080" # health/readiness/metrics: loopback-only, never exposed like the FTP port
+    networks:
+      - backend
+
+networks:
+  backend:
+
+volumes:
+  sftp_host_keys:
+  sftp_data:

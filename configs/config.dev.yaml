@@ -1,0 +1,55 @@
+# Configuration for the docker-compose development stack (docker-compose.yml).
+# Not for production use: passiveAddress is a loopback-friendly placeholder
+# and the SFTP target is the disposable sftp-test container.
+#
+# passwordHash below is bcrypt("dev-only-password") — this is a throwaway
+# credential for the local FTP listener only (127.0.0.1, not published
+# beyond your machine by docker-compose.yml). Regenerate it if you change
+# the password; see README.md.
+
+server:
+  listenAddress: "0.0.0.0"
+  controlPort: 2121
+  passiveAddress: "127.0.0.1"
+  passivePortStart: 30000
+  passivePortEnd: 30009
+  maxConnections: 5
+  idleTimeout: "5m"
+  dataConnectionTimeout: "30s"
+  shutdownTimeout: "10s"
+
+transfer:
+  bufferSize: 65536
+  temporarySuffix: ".part"
+  calculateSha256: true
+
+observability:
+  logLevel: "debug"
+  logFormat: "text"
+
+health:
+  listenAddress: "0.0.0.0:8080"
+  readinessRequiresSftp: true
+
+users:
+  - username: "ax2012"
+    passwordHash: "$2a$10$zc9VrqrtPGllY.htXfnyUeBLkP5lFx6G6dXLADyuOPOSubxM0UoBa"
+    virtualRoot: "/"
+    maxFileSize: 104857600 # 100 MiB
+    maxConcurrentTransfers: 4
+    permissions:
+      allowUpload: true
+      allowDownload: true
+      allowDelete: true
+      allowMkdir: true
+      allowRename: true
+      allowOverwrite: true
+    sftp:
+      host: "sftp-test"
+      port: 22
+      username: "facturas"
+      privateKeyFile: "/run/secrets/sftp_private_key"
+      knownHostsFile: "/app/config/known_hosts"
+      rootPath: "/upload"
+      connectTimeout: "10s"
+      readDirTimeout: "60s"
