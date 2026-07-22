@@ -24,6 +24,7 @@
 # Local pre-prod testing against a real remote SFTP target: real config,
 # private keys, known_hosts and IPs — never commit this.
 /pre-prod/
+/prod/
 
 # IDE / OS noise
 .idea/

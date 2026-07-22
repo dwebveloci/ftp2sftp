@@ -103,13 +103,17 @@ func (d *clientDriver) audit(command, virtualPath string, err error) {
 func (d *clientDriver) Name() string { return "ftp2sftp" }
 
 func (d *clientDriver) Stat(name string) (os.FileInfo, error) {
-	_, remote, err := d.remotePath(name)
+	virtualPath, remote, err := d.remotePath(name)
 	if err != nil {
+		d.audit("STAT", name, err)
+
 		return nil, err
 	}
 
 	sc, err := d.sftp()
 	if err != nil {
+		d.audit("STAT", virtualPath, err)
+
 		return nil, err
 	}
 
@@ -126,6 +130,8 @@ func (d *clientDriver) Stat(name string) (os.FileInfo, error) {
 func (d *clientDriver) Mkdir(name string, _ os.FileMode) error {
 	virtualPath, remote, err := d.remotePath(name)
 	if err != nil {
+		d.audit("MKD", name, err)
+
 		return err
 	}
 
@@ -137,6 +143,8 @@ func (d *clientDriver) Mkdir(name string, _ os.FileMode) error {
 
 	sc, err := d.sftp()
 	if err != nil {
+		d.audit("MKD", virtualPath, err)
+
 		return err
 	}
 
@@ -157,6 +165,8 @@ func (d *clientDriver) MkdirAll(string, os.FileMode) error {
 func (d *clientDriver) Remove(name string) error {
 	virtualPath, remote, err := d.remotePath(name)
 	if err != nil {
+		d.audit("DELE", name, err)
+
 		return err
 	}
 
@@ -168,6 +178,8 @@ func (d *clientDriver) Remove(name string) error {
 
 	sc, err := d.sftp()
 	if err != nil {
+		d.audit("DELE", virtualPath, err)
+
 		return err
 	}
 
@@ -189,6 +201,8 @@ func (d *clientDriver) RemoveAll(string) error {
 func (d *clientDriver) RemoveDir(name string) error {
 	virtualPath, remote, err := d.remotePath(name)
 	if err != nil {
+		d.audit("RMD", name, err)
+
 		return err
 	}
 
@@ -200,6 +214,8 @@ func (d *clientDriver) RemoveDir(name string) error {
 
 	sc, err := d.sftp()
 	if err != nil {
+		d.audit("RMD", virtualPath, err)
+
 		return err
 	}
 
@@ -213,11 +229,15 @@ func (d *clientDriver) RemoveDir(name string) error {
 func (d *clientDriver) Rename(oldName, newName string) error {
 	oldVirtual, oldRemote, err := d.remotePath(oldName)
 	if err != nil {
+		d.audit("RNTO", oldName+" -> "+newName, err)
+
 		return err
 	}
 
 	newVirtual, newRemote, err := d.remotePath(newName)
 	if err != nil {
+		d.audit("RNTO", oldVirtual+" -> "+newName, err)
+
 		return err
 	}
 
@@ -230,6 +250,8 @@ func (d *clientDriver) Rename(oldName, newName string) error {
 
 	sc, err := d.sftp()
 	if err != nil {
+		d.audit("RNTO", oldVirtual+" -> "+newVirtual, err)
+
 		return err
 	}
 
@@ -259,11 +281,15 @@ func (d *clientDriver) Chtimes(string, time.Time, time.Time) error { return errN
 func (d *clientDriver) ReadDir(name string) ([]os.FileInfo, error) {
 	virtualPath, remote, err := d.remotePath(name)
 	if err != nil {
+		d.audit("LIST", name, err)
+
 		return nil, err
 	}
 
 	sc, err := d.sftp()
 	if err != nil {
+		d.audit("LIST", virtualPath, err)
+
 		return nil, err
 	}
 
@@ -295,13 +321,22 @@ func (d *clientDriver) ReadDir(name string) ([]os.FileInfo, error) {
 
 // GetHandle implements ClientDriverExtentionFileTransfer (STOR/RETR).
 func (d *clientDriver) GetHandle(name string, flags int, offset int64) (libftpserver.FileTransfer, error) {
+	command := "RETR"
+	if flags&os.O_WRONLY != 0 {
+		command = "STOR"
+	}
+
 	virtualPath, remote, err := d.remotePath(name)
 	if err != nil {
+		d.audit(command, name, err)
+
 		return nil, err
 	}
 
 	sc, err := d.sftp()
 	if err != nil {
+		d.audit(command, virtualPath, err)
+
 		return nil, err
 	}
 
